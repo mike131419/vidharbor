@@ -1,0 +1,6 @@
+# Download engine (+ YouTube JS challenge solver, impersonation, extras)
+yt-dlp[default,curl-cffi]>=2026.8.19
+yt-dlp-ejs>=0.8.0
+# GUI + built-in browser
+PySide6>=6.8
+certifi

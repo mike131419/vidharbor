@@ -1,0 +1,76 @@
+name: Build Windows app
+
+# Run manually from the Actions tab, or push a tag like v1.0.1 to publish a release.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Stamp version and repository
+        id: ver
+        shell: pwsh
+        run: |
+          $ver = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0-dev' }
+          $f = 'vidharbor/__init__.py'
+          $text = Get-Content $f -Raw
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $text = $text -replace '__version__ = "[^"]*"', "__version__ = `"$ver`"" }
+          $text = $text -replace 'GITHUB_REPO = "[^"]*"', "GITHUB_REPO = `"$env:GITHUB_REPOSITORY`""
+          Set-Content $f $text -NoNewline
+          "version=$($ver -replace '-dev','')" >> $env:GITHUB_OUTPUT
+          Get-Content $f
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller pytest
+      - name: Unit tests
+        run: python -m pytest -q tests
+      - name: Build exe
+        run: pyinstaller --noconfirm VidHarbor.spec
+      - name: Add ffmpeg + Deno
+        shell: pwsh
+        run: ./tools/fetch_tools.ps1 -Dest dist/VidHarbor/bin
+      - name: Self-test the build
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath dist/VidHarbor/VidHarbor.exe -ArgumentList '--selftest'
+          $report = Get-Content "$env:LOCALAPPDATA/VidHarbor/selftest.txt"
+          $report
+          if ($report -match 'MISSING') { throw 'self-test found a missing component' }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DMyAppVersion=${{ steps.ver.outputs.version }}" installer.iss
+          if ($LASTEXITCODE -ne 0) { throw 'installer build failed' }
+      - name: Zip portable build
+        shell: pwsh
+        run: Compress-Archive -Path dist/VidHarbor -DestinationPath dist/VidHarbor-${{ steps.ver.outputs.version }}-portable.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VidHarbor-windows-x64
+          path: |
+            dist/*-setup.exe
+            dist/*-portable.zip
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*-setup.exe
+            dist/*-portable.zip
