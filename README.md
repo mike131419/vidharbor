@@ -51,13 +51,11 @@ click *More info → Run anyway*.
 
 ## Publishing a new version (maintainer)
 
-```
-git tag v1.0.1
-git push origin v1.0.1
-```
+On GitHub: **Actions → Build Windows app → Run workflow**, type the new version (e.g. `1.0.1`)
+and click *Run workflow*. (Pushing a tag such as `v1.0.1` does the same.)
 
-The *Build Windows app* workflow builds the exe, runs the tests and a self-test, makes the
-installer and portable zip, and publishes them as a release. It also stamps the version and
+The workflow builds the exe, runs the tests and a self-test, makes the installer and portable
+zip, creates the `v1.0.1` tag and publishes them as a release. It also stamps the version and
 this repository's name into the app, so the update banner points here automatically.
 You can also run the workflow by hand from the Actions tab to get a test build without releasing.
 
