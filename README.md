@@ -33,6 +33,38 @@ platforms: paste a link or a whole share message, get an MP4 or MP3.
 | 视频号 WeChat Channels | ❌ videos only play inside the WeChat app and are encrypted – not possible from a link |
 | YouTube, TikTok, Instagram, Facebook, X, Vimeo, Reddit, SoundCloud, … | ✅ (YouTube needs Deno, installed by the build) |
 
+## Phone access (iPhone and Android)
+
+VidHarbor on your PC can also serve a **phone app** (a web app you add to the Home Screen).
+Phones send links to your PC; the PC downloads them and the phone saves the result.
+Meant for you and a few friends – everyone shares one access code.
+
+**Set up on the PC (once)**
+1. Click **Phone access → Start phone access**. Tick *Start when VidHarbor opens*.
+2. For use **anywhere** (and so iPhones can install it as an app), click **Turn on internet link**.
+   This uses [Tailscale](https://tailscale.com/download/windows) Funnel (free): install Tailscale on
+   the PC, sign in, and approve Funnel the first time if it asks. Friends install nothing extra.
+   Without it, the plain link works on your home Wi-Fi only.
+3. Send friends the **link** (or let them scan the QR code) and the **access code**.
+
+**On the iPhone**
+1. Open the link in **Safari**, enter the access code.
+2. Tap **Share → Add to Home Screen**, open VidHarbor from the Home Screen and enter the code once more
+   (the Home Screen app keeps its own sign-in).
+3. To download: in Douyin, RedNote or any app tap **Share → Copy link** → open VidHarbor → **Paste**
+   → **Download** → **Save video** → *Save Video* (goes to Photos). MP3s: **Save to Files**.
+
+Android phones work the same way in Chrome (*Add to Home screen*), and can also share links
+straight to VidHarbor from the share sheet.
+
+**Good to know**
+- The PC must be on with VidHarbor open. *Keep this PC awake* stops it sleeping while phone access is on.
+- Friends' downloads use your PC's internet connection and your VidHarbor sign-ins (cookies).
+- Files are removed from the PC a few hours after they finish.
+- **New code** signs every phone out. Use it if the code ends up with someone it shouldn't.
+- No PC to leave on? `VidHarbor.exe --server --port 8787 --code YOUR-CODE` runs only the phone
+  part, and `python -m vidharbor.server` does the same on Linux. Many sites block downloads from cloud servers, though, so a home computer works best.
+
 ## Install
 
 Open this repository's **Releases** page and download the newest `VidHarbor-x.y.z-setup.exe`.
@@ -87,7 +119,11 @@ vidharbor/
   engine.py      engine self-update (PyPI wheels), ffmpeg/Deno installer, paths
   extractors.py  extra extractors (Kuaishou)
   updates.py     checks GitHub Releases for a newer app version
-tests/           pytest suite for link handling
+  core.py        download engine wrapper shared by the desktop and the phone server
+  server.py      phone access web server (sign-in, jobs, file streaming)
+  phone.py       Phone access dialog, Tailscale Funnel, QR code
+  web/           the phone app (PWA): index.html, app.js, styles.css, sw.js, icons
+tests/           pytest suites: link handling, phone server
 VidHarbor.spec   PyInstaller build      installer.iss  Inno Setup installer
 build.bat / run_dev.bat / tools/fetch_tools.ps1   local build helpers
 ```

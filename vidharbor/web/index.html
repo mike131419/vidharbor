@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VidHarbor</title>
+  <meta name="description" content="Download videos and MP3s from Douyin, RedNote, YouTube, TikTok and more.">
+  <meta name="theme-color" content="#e0533d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="VidHarbor">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <img src="icon-192.png" alt="" class="logo" width="30" height="30">
+    <h1>VidHarbor</h1>
+    <button id="menuBtn" class="ghost small hidden" type="button" aria-label="Sign out">Sign out</button>
+  </header>
+
+  <main>
+    <!-- sign in -->
+    <section id="login" class="card hidden" aria-labelledby="loginTitle">
+      <h2 id="loginTitle">Enter access code</h2>
+      <p class="muted">Ask the person who runs VidHarbor for the code. You only need to do this once on this phone.</p>
+      <form id="loginForm" autocomplete="off">
+        <input id="code" class="code" inputmode="text" autocapitalize="characters" spellcheck="false"
+               placeholder="XXXX-XXXX-XXXX" aria-label="Access code" required>
+        <p id="loginErr" class="error hidden" role="alert"></p>
+        <button class="primary block" type="submit">Continue</button>
+      </form>
+    </section>
+
+    <!-- offline / server down -->
+    <section id="offline" class="card hidden" role="status">
+      <h2>Can't reach VidHarbor</h2>
+      <p class="muted">The computer running VidHarbor may be asleep or offline. Try again in a moment.</p>
+      <button id="retryConn" class="primary block" type="button">Try again</button>
+    </section>
+
+    <!-- main -->
+    <section id="app" class="hidden">
+      <div id="installTip" class="tip hidden">
+        <span>Add VidHarbor to your Home Screen: tap <b>Share</b> <span class="share-glyph" aria-hidden="true">⇪</span> then <b>Add to Home Screen</b>.</span>
+        <button id="installClose" class="ghost small" type="button" aria-label="Dismiss">✕</button>
+      </div>
+
+      <form id="addForm" class="card">
+        <label for="text" class="label">Link or share message</label>
+        <textarea id="text" rows="3" placeholder="Paste a link from Douyin, RedNote, YouTube, TikTok, Instagram…" spellcheck="false"></textarea>
+        <div class="row">
+          <button id="pasteBtn" class="secondary grow" type="button">Paste</button>
+          <button id="clearBtn" class="ghost" type="button" aria-label="Clear">Clear</button>
+        </div>
+
+        <div class="seg" role="radiogroup" aria-label="Save as">
+          <button type="button" role="radio" data-mode="video" aria-checked="true">Video</button>
+          <button type="button" role="radio" data-mode="mp3" aria-checked="false">MP3</button>
+        </div>
+        <div id="qualityRow" class="row">
+          <label for="quality" class="label inline">Quality</label>
+          <select id="quality">
+            <option value="1080">Up to 1080p (recommended)</option>
+            <option value="720">Up to 720p (smaller)</option>
+            <option value="best">Best available</option>
+          </select>
+        </div>
+        <p id="addErr" class="error hidden" role="alert"></p>
+        <button id="goBtn" class="primary block" type="submit">Download</button>
+      </form>
+
+      <h2 class="section">Downloads</h2>
+      <p id="empty" class="muted center">Nothing yet. Copy a link in Douyin, RedNote or any app, come back here and tap <b>Paste</b>.</p>
+      <ul id="jobs" class="jobs" aria-live="polite"></ul>
+      <p class="muted tiny center">Files are kept for a few hours, then removed. Save the ones you want.</p>
+    </section>
+  </main>
+
+  <template id="jobTpl">
+    <li class="job">
+      <div class="job-head">
+        <span class="chip"></span>
+        <span class="kind"></span>
+        <button class="ghost small remove" type="button" aria-label="Remove">✕</button>
+      </div>
+      <p class="title"></p>
+      <div class="bar"><div class="fill"></div></div>
+      <p class="status muted"></p>
+      <p class="error hidden"></p>
+      <div class="actions"></div>
+    </li>
+  </template>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

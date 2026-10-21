@@ -4,9 +4,11 @@
 import sys
 from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
-datas = [('assets/icon.png', 'assets')]
+datas = [('assets/icon.png', 'assets'),
+         ('vidharbor/web', 'vidharbor/web')]      # the phone app (PWA) served by Phone access
 binaries = []
-hiddenimports = collect_submodules('yt_dlp') + collect_submodules('yt_dlp_ejs')
+hiddenimports = (collect_submodules('yt_dlp') + collect_submodules('yt_dlp_ejs')
+                 + collect_submodules('qrcode') + ['vidharbor.server', 'vidharbor.phone'])
 
 # yt-dlp-ejs ships the JavaScript that solves YouTube's challenges
 for pkg in ('yt_dlp_ejs', 'curl_cffi', 'certifi'):

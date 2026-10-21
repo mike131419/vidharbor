@@ -92,6 +92,15 @@ def selftest() -> int:
         lines.append(f'curl_cffi: {curl_cffi.__version__}')
     except ImportError:
         lines.append('curl_cffi: missing (optional)')
+    from vidharbor.server import WEB_DIR
+    needed = ('index.html', 'app.js', 'styles.css', 'sw.js', 'manifest.webmanifest', 'apple-touch-icon.png')
+    missing = [f for f in needed if not (WEB_DIR / f).is_file()]
+    lines.append(f'phone app files: {"MISSING " + ", ".join(missing) if missing else "ok"} ({WEB_DIR})')
+    try:
+        import qrcode  # noqa: F401
+        lines.append('qrcode: ok')
+    except ImportError as e:
+        lines.append(f'qrcode: MISSING ({e})')
     text = '\n'.join(lines)
     print(text)
     (engine.data_dir() / 'selftest.txt').write_text(text + '\n', 'utf-8')
@@ -101,6 +110,12 @@ def selftest() -> int:
 def main() -> int:
     if '--selftest' in sys.argv:
         return selftest()
+    if '--server' in sys.argv:   # phone access without the desktop window
+        from vidharbor import engine
+        engine.add_bins_to_path()
+        engine.install_engine_finder()
+        from vidharbor.server import main as server_main
+        return server_main([a for a in sys.argv[1:] if a != '--server'])
     app = create_app()
     from vidharbor.ui import MainWindow
     win = MainWindow()

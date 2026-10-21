@@ -68,6 +68,8 @@ class Settings:
         'proxy': '', 'subfolders': True, 'template': '%(title).80B [%(id)s].%(ext)s',
         'allow_playlist': False, 'embed_meta': True, 'rate_limit': '', 'concurrency': 3,
         'watch_clipboard': False,
+        'phone_enabled': False, 'phone_port': 8787, 'phone_code': '', 'phone_keep_hours': 6,
+        'phone_keep_awake': True,
     }
 
     def __init__(self):
@@ -257,10 +259,28 @@ class MainWindow(QMainWindow):
         self.cookies = CookieManager(self)
         self.browser: BrowserWindow | None = None
         self._clip_seen: set[str] = set()
+        from .phone import PhoneAccess
+        self.phone = PhoneAccess(self.s, self.cookies, self)
         self._build()
+        self.phone.log.connect(self._log)
+        self.phone.changed.connect(self._phone_changed)
         QGuiApplication.clipboard().dataChanged.connect(self._on_clipboard)
         QTimer.singleShot(300, self._check_tools)
         QTimer.singleShot(2000, self._check_app_update)
+        if self.s.get('phone_enabled'):
+            QTimer.singleShot(500, self._autostart_phone)
+
+    def _autostart_phone(self):
+        if err := self.phone.start():
+            self._log(f'Phone access could not start: {err}')
+
+    def _phone_changed(self):
+        self.phone_btn.setText('Phone access  ●' if self.phone.running else 'Phone access')
+        self.phone_btn.setToolTip(f'Phone access is on: {self.phone.best_url()}' if self.phone.running else '')
+
+    def open_phone(self):
+        from .phone import PhoneDialog
+        PhoneDialog(self.phone, self).exec()
 
     def _check_app_update(self):
         sig = _UpdateSignals(self)
@@ -295,6 +315,9 @@ class MainWindow(QMainWindow):
                        'Instagram · Facebook · 1,000+ sites</span>')
         head.addWidget(title)
         head.addStretch()
+        self.phone_btn = QPushButton('Phone access')
+        self.phone_btn.clicked.connect(self.open_phone)
+        head.addWidget(self.phone_btn)
         for text, slot in (('Built-in browser', self.open_browser), ('Engine && tools', self.open_engine),
                            ('Settings', self.open_settings)):
             b = QPushButton(text)
@@ -701,6 +724,7 @@ class MainWindow(QMainWindow):
             e.ignore()
             return
         self.cancel_all()
+        self.phone.stop()
         self.cookies.save()
         if self.browser:
             self.browser.close()
