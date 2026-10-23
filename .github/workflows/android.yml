@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # comes with the Android SDK preinstalled
     timeout-minutes: 60
     defaults:
       run:
@@ -24,14 +24,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - uses: android-actions/setup-android@v3
+      - name: Android SDK
+        run: |
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          if [ ! -d "$sdk" ]; then
+            echo "::error title=Android SDK missing::No Android SDK at $sdk on this runner image"
+            exit 1
+          fi
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
+          mgr=$(ls "$sdk"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | sort -V | tail -1)
+          yes | "$mgr" --licenses > /dev/null 2>&1 || true
+          ls "$sdk/platforms" "$sdk/build-tools" | tr '\n' ' '
+          echo "::notice title=Android SDK::$sdk – platforms: $(ls "$sdk/platforms" | tr '\n' ' ') build-tools: $(ls "$sdk/build-tools" | tail -3 | tr '\n' ' ')"
 
       - uses: gradle/actions/setup-gradle@v4
+        continue-on-error: true   # only speeds up builds with a cache
 
       - name: Read version
         id: ver
