@@ -1,0 +1,4 @@
+# Cloud web app only (no desktop window): see Dockerfile / render.yaml
+yt-dlp[default,curl-cffi]>=2026.8.19
+yt-dlp-ejs>=0.8.0
+certifi

@@ -23,6 +23,12 @@
   </header>
 
   <main>
+    <!-- starting up -->
+    <section id="loading" class="card center" role="status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="wakeMsg" class="muted hidden">Waking up the server… this can take up to a minute after it has been idle.</p>
+    </section>
+
     <!-- sign in -->
     <section id="login" class="card hidden" aria-labelledby="loginTitle">
       <h2 id="loginTitle">Enter access code</h2>
@@ -76,7 +82,7 @@
       <h2 class="section">Downloads</h2>
       <p id="empty" class="muted center">Nothing yet. Copy a link in Douyin, RedNote or any app, come back here and tap <b>Paste</b>.</p>
       <ul id="jobs" class="jobs" aria-live="polite"></ul>
-      <p class="muted tiny center">Files are kept for a few hours, then removed. Save the ones you want.</p>
+      <p class="muted tiny center">Save the files you want soon – they are removed from the server after a while.</p>
     </section>
   </main>
 

@@ -128,6 +128,14 @@ a.button {
   min-height: 44px; border-radius: 10px; font-weight: 600; text-decoration: none;
 }
 
+.spinner {
+  width: 32px; height: 32px; margin: 12px auto;
+  border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);

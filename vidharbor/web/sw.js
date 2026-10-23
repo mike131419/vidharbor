@@ -1,6 +1,6 @@
 // Caches only the app shell so it opens instantly. API calls and downloaded
 // files always go to the network.
-const CACHE = 'vidharbor-shell-v1';
+const CACHE = 'vidharbor-shell-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
                'icon-192.png', 'apple-touch-icon.png'];
 
@@ -23,7 +23,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(e.request)
       .then((res) => {
-        if (res.ok) {
+        // never cache a host's "starting up" page in place of the app
+        if (res.ok && res.headers.get('X-VidHarbor')) {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(e.request, copy));
         }

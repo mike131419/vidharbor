@@ -55,53 +55,54 @@ def _code_hash(code: str) -> str:
 
 # ------------------------------------------------------------------ sign-ins
 class TokenStore:
-    """Signed-in phones. Tokens survive restarts; changing the access code
-    signs everyone out."""
+    """Signed-in phones, as signed tokens: nothing is stored, so sign-ins
+    survive restarts (free cloud hosts restart often, with an empty disk).
+    The signing key comes from the access code, so a new code signs everyone out."""
 
-    def __init__(self, path: Path, code: str):
-        self.path, self.lock = path, threading.Lock()
+    MAX_AGE = 365 * 24 * 3600
+
+    def __init__(self, code: str):
         self.code_hash = _code_hash(code)
-        try:
-            data = json.loads(path.read_text('utf-8'))
-            self.tokens = data['tokens'] if data.get('code') == self.code_hash else {}
-        except (OSError, ValueError, KeyError):
-            self.tokens = {}
-        self._save()
+        self._key = hashlib.sha256(('vidharbor-token:' + _norm_code(code)).encode()).digest()
+        self._revoked: set[str] = set()
+        self._seen: set[str] = set()
+        self.lock = threading.Lock()
 
-    def _save(self):
-        tmp = self.path.with_suffix('.tmp')
-        tmp.write_text(json.dumps({'code': self.code_hash, 'tokens': self.tokens}), 'utf-8')
-        os.replace(tmp, self.path)
+    def _sign(self, payload: str) -> str:
+        return hmac.new(self._key, payload.encode(), hashlib.sha256).hexdigest()[:40]
 
-    def issue(self, label: str) -> str:
-        token = secrets.token_urlsafe(32)
-        with self.lock:
-            self.tokens[token] = {'created': time.time(), 'label': label[:80], 'seen': time.time()}
-            self._save()
-        return token
+    def issue(self, label: str = '') -> str:
+        payload = f'{int(time.time()):x}.{secrets.token_hex(8)}'
+        return f'v1.{payload}.{self._sign(payload)}'
 
     def check(self, token: str | None) -> bool:
-        if not token:
+        if not token or token in self._revoked:
+            return False
+        parts = token.split('.')
+        if len(parts) != 4 or parts[0] != 'v1':
+            return False
+        payload = f'{parts[1]}.{parts[2]}'
+        if not hmac.compare_digest(self._sign(payload), parts[3]):
+            return False
+        try:
+            if time.time() - int(parts[1], 16) > self.MAX_AGE:
+                return False
+        except ValueError:
             return False
         with self.lock:
-            info = self.tokens.get(token)
-            if info and time.time() - info.get('seen', 0) > 3600:
-                info['seen'] = time.time()
-                self._save()
-            return info is not None
+            self._seen.add(parts[2])
+        return True
 
     def revoke(self, token: str):
         with self.lock:
-            if self.tokens.pop(token, None) is not None:
-                self._save()
-
-    def revoke_all(self):
-        with self.lock:
-            self.tokens.clear()
-            self._save()
+            self._revoked.add(token)
+            parts = token.split('.')
+            if len(parts) == 4:
+                self._seen.discard(parts[2])
 
     def count(self) -> int:
-        return len(self.tokens)
+        """Phones that signed in or were used since this server started."""
+        return len(self._seen)
 
 
 class LoginLimiter:
@@ -210,7 +211,7 @@ class PhoneServer:
         self.log, self.log_detail = log, (log_detail or (lambda _t: None))
         self.keep_seconds = keep_hours * 3600
         self.files_dir = files_dir or (engine.data_dir() / 'phone-downloads')
-        self.tokens = TokenStore(engine.data_dir() / 'phone-tokens.json', access_code)
+        self.tokens = TokenStore(access_code)
         self.access_code = access_code
         self.limiter = LoginLimiter()
         self.jobs: dict[int, PhoneJob] = {}
@@ -332,6 +333,7 @@ _STATIC = {'': 'index.html', 'index.html': 'index.html', 'app.js': 'app.js', 'st
            'icon-maskable-512.png': 'icon-maskable-512.png', 'apple-touch-icon.png': 'apple-touch-icon.png',
            'favicon.png': 'icon-192.png'}
 _SECURITY_HEADERS = {
+    'X-VidHarbor': '1',   # lets the app tell our replies from a host's "starting up" page
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'no-referrer',
     'X-Frame-Options': 'DENY',

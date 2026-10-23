@@ -33,7 +33,33 @@ platforms: paste a link or a whole share message, get an MP4 or MP3.
 | 视频号 WeChat Channels | ❌ videos only play inside the WeChat app and are encrypted – not possible from a link |
 | YouTube, TikTok, Instagram, Facebook, X, Vimeo, Reddit, SoundCloud, … | ✅ (YouTube needs Deno, installed by the build) |
 
-## Phone access (iPhone and Android)
+## Web app for phones – no PC needed
+
+Run VidHarbor as a website that you and your friends open on any iPhone or Android phone.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mike131419/vidharbor)
+
+**Set up (once, about 5 minutes)**
+1. Click **Deploy to Render** above and sign in with GitHub. No credit card is needed for the free plan.
+2. Render asks for **VIDHARBOR_CODE**. Type the access code friends will use, e.g. `MIKE-2026-VIDS`.
+3. Click **Deploy** and wait for "Live" (the first build takes a few minutes).
+4. Your link is shown at the top, like `https://vidharbor-xxxx.onrender.com`. Send it and the code to friends.
+
+**Using it:** open the link (iPhone: in Safari), enter the code once, then **Share → Add to Home Screen**.
+Copy a link in Douyin, RedNote or any app → open VidHarbor → **Paste → Download → Save video**.
+
+**Good to know (free plan)**
+- After 15 minutes with nobody using it, the server sleeps. The next visit shows "Waking up the
+  server…" for up to a minute, then works normally.
+- Files are wiped when the server sleeps or restarts, so save them when they're ready.
+- yt-dlp updates itself every time the server starts, so fixes for sites arrive automatically.
+- Render's paid Starter plan ($7/month) stays awake all the time; change it under the service's Settings.
+- Some sites block cloud servers. If YouTube says "confirm you're not a bot", add a
+  **VIDHARBOR_COOKIES** environment variable in Render with cookies exported from a browser
+  (cookies.txt format); a spare account is safest.
+- Other hosts work too: `docker build -t vidharbor . && docker run -p 8787:8787 -e VIDHARBOR_CODE=... vidharbor`.
+
+## Phone access through your PC (optional)
 
 VidHarbor on your PC can also serve a **phone app** (a web app you add to the Home Screen).
 Phones send links to your PC; the PC downloads them and the phone saves the result.
@@ -117,13 +143,15 @@ vidharbor/
   linkparse.py   share-text parsing, platform detection, URL normalisation
   browser.py     built-in browser, cookie export, stream capture, cookie warm-up
   engine.py      engine self-update (PyPI wheels), ffmpeg/Deno installer, paths
-  extractors.py  extra extractors (Kuaishou)
+  extractors.py  extra extractors (Kuaishou, Douyin share-page fallback)
   updates.py     checks GitHub Releases for a newer app version
   core.py        download engine wrapper shared by the desktop and the phone server
   server.py      phone access web server (sign-in, jobs, file streaming)
+  cloud.py       entry point for the hosted web app (env settings, yt-dlp auto-update)
   phone.py       Phone access dialog, Tailscale Funnel, QR code
   web/           the phone app (PWA): index.html, app.js, styles.css, sw.js, icons
-tests/           pytest suites: link handling, phone server
+tests/           pytest suites: link handling, phone server, Douyin fallback; cloud_probe.py
+Dockerfile, render.yaml, requirements-server.txt   the hosted web app
 VidHarbor.spec   PyInstaller build      installer.iss  Inno Setup installer
 build.bat / run_dev.bat / tools/fetch_tools.ps1   local build helpers
 ```

@@ -60,4 +60,59 @@ class KuaishouIE(InfoExtractor):
         }
 
 
-EXTRA_EXTRACTORS = [KuaishouIE]
+MOBILE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 '
+             '(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
+
+
+def parse_douyin_router_data(webpage: str, video_id: str, search_json) -> dict:
+    """Video info from an iesdouyin.com share page (window._ROUTER_DATA).
+    search_json is InfoExtractor._search_json (passed in so this is testable)."""
+    data = search_json(r'window\._ROUTER_DATA\s*=', webpage, 'router data', video_id,
+                       end_pattern=r'</script>', default={})
+    item = None
+    for page in (traverse_obj(data, ('loaderData', {dict.values})) or []):
+        item = traverse_obj(page, ('videoInfoRes', 'item_list', 0, {dict}))
+        if item:
+            break
+    if not item:
+        raise ExtractorError('Douyin share page has no video data (the post may be deleted or private).',
+                             expected=True)
+    video = item.get('video') or {}
+    play = traverse_obj(video, ('play_addr', 'url_list', 0)) or ''
+    if not play and (uri := traverse_obj(video, ('play_addr', 'uri'))):
+        play = f'https://aweme.snssdk.com/aweme/v1/play/?video_id={uri}&ratio=1080p&line=0'
+    if not play:
+        if item.get('images'):
+            raise ExtractorError('This Douyin link is an image post (图文), not a video.', expected=True)
+        raise ExtractorError('Douyin did not return a video address.', expected=True)
+    return {
+        'id': str(item.get('aweme_id') or video_id),
+        'title': (item.get('desc') or '').strip() or f'douyin_{video_id}',
+        'url': play.replace('/playwm/', '/play/'),   # the version without the watermark
+        'ext': 'mp4',
+        'uploader': traverse_obj(item, ('author', 'nickname')),
+        'thumbnail': traverse_obj(video, ('cover', 'url_list', 0)),
+        'duration': float_or_none(video.get('duration'), 1000),
+        'timestamp': int_or_none(item.get('create_time')),
+        'width': int_or_none(video.get('width')),
+        'height': int_or_none(video.get('height')),
+        'http_headers': {'User-Agent': MOBILE_UA, 'Referer': 'https://www.douyin.com/'},
+    }
+
+
+class DouyinShareIE(InfoExtractor):
+    """Fallback for Douyin without cookies: reads the mobile share page.
+    Used when yt-dlp's own Douyin extractor asks for fresh cookies, which a
+    cloud server has no browser to produce."""
+    IE_NAME = 'douyin:share'
+    _VALID_URL = r'https?://(?:www\.)?iesdouyin\.com/share/(?:video|note|slides)/(?P<id>\d+)'
+
+    def _real_extract(self, url):
+        video_id = self._match_id(url)
+        webpage = self._download_webpage(
+            f'https://www.iesdouyin.com/share/video/{video_id}/', video_id,
+            headers={'User-Agent': MOBILE_UA, 'Referer': 'https://www.douyin.com/'})
+        return parse_douyin_router_data(webpage, video_id, self._search_json)
+
+
+EXTRA_EXTRACTORS = [KuaishouIE, DouyinShareIE]

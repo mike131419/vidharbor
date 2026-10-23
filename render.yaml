@@ -1,0 +1,20 @@
+# One-click deploy of the VidHarbor web app on Render (free plan, Singapore).
+# Use the "Deploy to Render" button in the README; Render asks for the access code.
+services:
+  - type: web
+    name: vidharbor
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/ping
+    autoDeployTrigger: commit
+    envVars:
+      - key: VIDHARBOR_CODE
+        sync: false        # Render asks for this when you deploy: the code friends type once
+      - key: VIDHARBOR_KEEP_HOURS
+        value: "2"
+      - key: VIDHARBOR_WORKERS
+        value: "2"
+      - key: VIDHARBOR_AUTO_UPDATE
+        value: "1"

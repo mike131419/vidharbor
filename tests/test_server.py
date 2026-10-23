@@ -179,8 +179,21 @@ def test_cleanup_and_code_change(phone, media_site, tmp_path):
     assert jid not in phone.jobs and not os.path.exists(path)
 
     from vidharbor.server import TokenStore
-    from vidharbor import engine
-    store = TokenStore(engine.data_dir() / 'phone-tokens.json', 'ABCD-EFGH-JKMN')
-    assert store.count() >= 1                       # same code: phones stay signed in
-    store = TokenStore(engine.data_dir() / 'phone-tokens.json', 'NEW1-CODE-2345')
-    assert store.count() == 0                       # new code signs everyone out
+    token = c.cookie.split('=', 1)[1]
+    assert TokenStore('ABCD-EFGH-JKMN').check(token)        # restart, same code: still signed in
+    assert not TokenStore('NEW1-CODE-2345').check(token)    # new code signs everyone out
+    store = TokenStore('ABCD-EFGH-JKMN')
+    assert not store.check(token[:-1] + ('0' if token[-1] != '0' else '1'))   # tampered
+    assert not store.check('v1.0.abc.def') and not store.check('garbage')
+    store.revoke(token)
+    assert not store.check(token)
+
+
+def test_signed_out_after_logout(phone):
+    c = Client(phone.port)
+    c.login()
+    assert c.req('GET', '/api/me')[0] == 200
+    old = c.cookie
+    c.req('POST', '/api/logout')
+    c.cookie = old                                  # reusing the old token after sign-out fails
+    assert c.req('GET', '/api/me')[0] == 401

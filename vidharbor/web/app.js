@@ -26,7 +26,7 @@ const canShareFiles = (() => {
 
 // ---------------------------------------------------------------- helpers
 function show(view) {
-  for (const id of ['login', 'offline', 'app']) $(id).classList.toggle('hidden', id !== view);
+  for (const id of ['loading', 'login', 'offline', 'app']) $(id).classList.toggle('hidden', id !== view);
   $('menuBtn').classList.toggle('hidden', view !== 'app');
 }
 
@@ -54,6 +54,7 @@ function fmtEta(s) {
 }
 
 class AuthError extends Error {}
+class WakingError extends Error {}   // the host answered, but VidHarbor isn't up yet
 
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -62,6 +63,9 @@ async function api(path, opts = {}) {
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
+  // Free cloud hosts sleep when idle and reply with their own "starting" page
+  // while waking up; only our server sets this header.
+  if (!res.headers.get('X-VidHarbor')) throw new WakingError(`host replied ${res.status}`);
   if (res.status === 401) throw new AuthError('signed out');
   let data = {};
   try { data = await res.json(); } catch { /* empty */ }
@@ -83,12 +87,24 @@ async function boot() {
     history.replaceState(null, '', location.pathname);
   }
 
+  show('loading');
+  const wakeHint = setTimeout(() => $('wakeMsg').classList.remove('hidden'), 2500);
+  const deadline = Date.now() + 120000;   // a sleeping free server takes about a minute
   try {
-    await api('/api/me');
-    enterApp(!!shared);
-  } catch (e) {
-    if (e instanceof AuthError) show('login');
-    else show('offline');
+    for (;;) {
+      try {
+        await api('/api/me');
+        enterApp(!!shared);
+        return;
+      } catch (e) {
+        if (e instanceof AuthError) return show('login');
+        if (Date.now() > deadline) return show('offline');
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+  } finally {
+    clearTimeout(wakeHint);
+    $('wakeMsg').classList.add('hidden');
   }
 }
 

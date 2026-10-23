@@ -359,6 +359,13 @@ class Runner:
             try:
                 ydl.download([url])
             except DownloadError as e:
+                if (m := re.search(r'douyin\.com/video/(\d+)', url)) and not job.cancel.is_set():
+                    # yt-dlp's Douyin extractor needs fresh cookies; the share page doesn't
+                    self.ev.log(f'#{job.id} Douyin: trying the share page instead ({str(e)[:120]})')
+                    self.ev.status(job, 'Trying another way…')
+                    ydl.download([f'https://www.iesdouyin.com/share/video/{m.group(1)}/'])
+                    self.ev.done(job, 'ok', 'Done', job.filepath)
+                    return
                 if 'Unsupported URL' not in str(e):
                     raise
                 self.ev.status(job, 'Searching page for video…')
