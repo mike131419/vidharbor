@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VidHarbor icon: a download arrow over a tray (108dp adaptive-icon canvas, 66dp safe zone) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49.94,28 H58.06 V56.44 H49.94 Z M37.75,53.19 H70.25 L54,70.25 Z M36.93,75.13 H71.07 A2.43,2.43 0 0 1 71.07,80 H36.93 A2.43,2.43 0 0 1 36.93,75.13 Z" />
+</vector>

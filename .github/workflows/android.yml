@@ -1,0 +1,129 @@
+name: Android app
+
+# Builds the VidHarbor Android APKs on every change under android/.
+# Publishes a GitHub release (tag android-vX.Y.Z) the first time a version
+# number is built - bump it in android/buildSrc/src/main/kotlin/Version.kt.
+# Android releases are never marked "latest", so the Windows app's update
+# check keeps seeing Windows releases.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml', '.github/scripts/gradle_errors.py']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Read version
+        id: ver
+        run: |
+          v=$(python3 - <<'EOF'
+          import re
+          t = open('buildSrc/src/main/kotlin/Version.kt').read()
+          m = re.search(r'val currentVersion: Version =\s*Version\.(\w+)\(([^)]*)\)', t)
+          kind, args = m.group(1), [int(x) for x in re.findall(r'=\s*(\d+)', m.group(2))]
+          v = '.'.join(map(str, args[:3]))
+          if kind != 'Stable':
+              v += {'Alpha': '-alpha', 'Beta': '-beta', 'ReleaseCandidate': '-rc'}[kind] + f'.{args[3]}'
+          print(v)
+          EOF
+          )
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/android-v$v" >/dev/null; then
+            echo "release=false" >> "$GITHUB_OUTPUT"; echo "android-v$v already released; building only"
+          else
+            echo "release=true" >> "$GITHUB_OUTPUT"; echo "will release android-v$v"
+          fi
+
+      - name: Signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > signing/ci.jks
+            store=../signing/ci.jks; spass=$KS_PASS; alias=$KEY_ALIAS; kpass=$KEY_PASS
+            echo "Signing with the key from repository secrets"
+          else
+            store=../signing/vidharbor-release.jks; spass=vidharbor-android; alias=vidharbor; kpass=vidharbor-android
+            echo "Signing with the key committed in android/signing"
+          fi
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$store" "$spass" "$alias" "$kpass" > keystore.properties
+
+      - name: Build APKs
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew assembleGenericRelease --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Report build errors
+        if: failure()
+        run: python3 ../.github/scripts/gradle_errors.py build.log
+
+      - name: Check and rename APKs
+        id: apks
+        run: |
+          set -e
+          v=${{ steps.ver.outputs.version }}
+          mkdir -p ../out
+          for f in $(find app/build/outputs/apk -name '*.apk'); do
+            abi=$(basename "$f" | grep -oE 'arm64-v8a|armeabi-v7a|x86_64|x86|universal' | head -1)
+            cp "$f" "../out/VidHarbor-$v-${abi:-universal}.apk"
+          done
+          ls -la ../out
+          aapt2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          apk=../out/VidHarbor-$v-arm64-v8a.apk
+          badge=$("$aapt2" dump badging "$apk" | grep -E "^package:|^application-label:" | tr '\n' ' ')
+          plugin=$(unzip -l "$apk" | grep -c 'assets/ytdlp-plugins/vidharbor/yt_dlp_plugins/extractor/vidharbor.py' || true)
+          cert=$("$apksigner" verify --print-certs "$apk" | grep -m1 'SHA-256' | sed 's/.*: //')
+          size=$(du -h "$apk" | cut -f1)
+          echo "::notice title=APK::$badge | plugin files: $plugin | size $size | signer $cert"
+          test "$plugin" = "1"
+          echo "$badge" | grep -q "io.github.mike131419.vidharbor"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VidHarbor-android-${{ steps.ver.outputs.version }}
+          path: out/*.apk
+          if-no-files-found: error
+
+      - name: Publish release
+        if: steps.ver.outputs.release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-v${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: VidHarbor Android ${{ steps.ver.outputs.version }}
+          make_latest: 'false'
+          files: out/*.apk
+          body: |
+            **VidHarbor for Android.** Download one APK on your phone and tap it to install:
+
+            - **VidHarbor-${{ steps.ver.outputs.version }}-arm64-v8a.apk** – almost every phone from the last 8 years
+            - **…-universal.apk** – if that one says "App not installed"
+            - armeabi-v7a / x86 / x86_64 – older or unusual devices
+
+            Android will ask you to allow installing apps from your browser once.
+            Based on [Seal](https://github.com/JunkFood02/Seal) (GPL-3.0).

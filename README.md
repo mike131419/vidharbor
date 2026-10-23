@@ -33,6 +33,18 @@ platforms: paste a link or a whole share message, get an MP4 or MP3.
 | 视频号 WeChat Channels | ❌ videos only play inside the WeChat app and are encrypted – not possible from a link |
 | YouTube, TikTok, Instagram, Facebook, X, Vimeo, Reddit, SoundCloud, … | ✅ (YouTube needs Deno, installed by the build) |
 
+## Android app
+
+Downloads on the phone itself, so Douyin, RedNote, YouTube and TikTok see an ordinary
+phone connection; no PC or server needed. (iPhone can't install apps this way.)
+
+1. On the phone, open **Releases** on this page and find the newest **VidHarbor Android**.
+2. Download **VidHarbor-x.y.z-arm64-v8a.apk** (or the *universal* one if that won't install) and tap it.
+3. Allow your browser to install apps when Android asks, then tap **Install**.
+
+Share a video from Douyin, RedNote, TikTok or YouTube → **VidHarbor**, or paste a link in the
+app. The app offers new versions itself. Source and details: [`android/`](android/).
+
 ## Web app for phones – no PC needed
 
 Run VidHarbor as a website that you and your friends open on any iPhone or Android phone.
