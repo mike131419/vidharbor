@@ -218,6 +218,8 @@ private val BooleanPreferenceDefaults =
         NOTIFICATION to true,
         EMBED_METADATA to true,
         USE_CUSTOM_AUDIO_PRESET to false,
+        // VidHarbor: use sign-ins from the built-in browser (RedNote needs one)
+        COOKIES to true,
     )
 
 private val IntPreferenceDefaults =

@@ -9,9 +9,10 @@
 Plugin extractors are tried before yt-dlp's built-in ones.
 """
 import re
+import urllib.parse
 
 from yt_dlp.extractor.common import InfoExtractor
-from yt_dlp.utils import ExtractorError, float_or_none, int_or_none, traverse_obj
+from yt_dlp.utils import ExtractorError, float_or_none, int_or_none, js_to_json, traverse_obj, url_or_none
 
 MOBILE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 '
              '(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1')
@@ -99,6 +100,74 @@ def parse_douyin_router_data(webpage, video_id, search_json):
         'webpage_url': f'https://www.douyin.com/video/{video_id}',
         'http_headers': {'User-Agent': MOBILE_UA, 'Referer': 'https://www.douyin.com/'},
     }
+
+
+REDNOTE_SIGN_IN = (
+    'RedNote now only shows posts to signed-in users. One-time fix: in VidHarbor open '
+    'Settings > Network > Cookies, add xiaohongshu.com, sign in to your RedNote account, '
+    'go back, and try this link again.')
+
+
+class VidHarborRedNoteIE(InfoExtractor):
+    """RedNote (Xiaohongshu) with clear messages: anonymous visitors are sent to a
+    security page, which yt-dlp reports only as 'No video formats found'.
+    Video parsing follows yt-dlp's XiaoHongShu extractor (Unlicense) and also
+    reads the mobile page layout."""
+    IE_NAME = 'vidharbor:rednote'
+    IE_DESC = False
+    _VALID_URL = (r'https?://(?:www\.)?xiaohongshu\.com/'
+                  r'(?:explore|discovery/item|user/profile/[^/?#]+)/(?P<id>[\da-f]{24})')
+
+    def _real_extract(self, url):
+        note_id = self._match_id(url)
+        query = urllib.parse.urlparse(url).query
+        page_url = f'https://www.xiaohongshu.com/explore/{note_id}' + (f'?{query}' if query else '')
+        webpage, urlh = self._download_webpage_handle(page_url, note_id)
+        landed = urlh.url
+        if re.search(r'/404|xhs_sec_server|website-login|/login', urllib.parse.urlparse(landed).path + landed):
+            raise ExtractorError(REDNOTE_SIGN_IN, expected=True)
+
+        state = self._search_json(r'window\.__INITIAL_STATE__\s*=', webpage, 'initial state', note_id,
+                                  transform_source=js_to_json, default={})
+        note = (traverse_obj(state, ('note', 'noteDetailMap', note_id, 'note', {dict}))
+                or traverse_obj(state, ('noteData', 'data', 'noteData', {dict})))
+        if not note:
+            raise ExtractorError(REDNOTE_SIGN_IN, expected=True)
+        video = note.get('video')
+        if not video:
+            raise ExtractorError('This RedNote post is photos, not a video.', expected=True)
+
+        formats = []
+        for info in traverse_obj(video, ('media', 'stream', ..., ...)):
+            fmt = traverse_obj(info, {
+                'fps': ('fps', {int_or_none}),
+                'width': ('width', {int_or_none}),
+                'height': ('height', {int_or_none}),
+                'vcodec': ('videoCodec', {str}),
+                'acodec': ('audioCodec', {str}),
+                'tbr': ('avgBitrate', {int_or_none(scale=1000)}),
+                'filesize': ('size', {int_or_none}),
+            })
+            for stream_url in traverse_obj(info, (('masterUrl', ('backupUrls', ...)), {url_or_none})):
+                formats.append({'url': stream_url, **fmt})
+        if origin_key := traverse_obj(video, ('consumer', 'originVideoKey', {str})):
+            formats.append({'format_id': 'direct', 'url': f'https://sns-video-bd.xhscdn.com/{origin_key}',
+                            'ext': 'mp4', 'quality': 1})
+        if not formats:
+            raise ExtractorError('RedNote did not return the video for this post. ' + REDNOTE_SIGN_IN,
+                                 expected=True)
+
+        return {
+            'id': note_id,
+            'formats': formats,
+            'title': (note.get('title') or note.get('desc') or '').strip()[:80] or f'rednote_{note_id}',
+            'description': note.get('desc'),
+            'uploader': traverse_obj(note, ('user', ('nickname', 'nickName'), {str}), get_all=False),
+            'uploader_id': traverse_obj(note, ('user', 'userId', {str})),
+            'thumbnail': traverse_obj(note, ('imageList', 0, ('urlDefault', 'url'), {url_or_none}), get_all=False),
+            'duration': float_or_none(traverse_obj(video, ('capa', 'duration'))),
+            'http_headers': {'Referer': 'https://www.xiaohongshu.com/'},
+        }
 
 
 class VidHarborKuaishouIE(InfoExtractor):
