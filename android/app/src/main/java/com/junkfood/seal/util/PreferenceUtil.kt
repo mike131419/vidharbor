@@ -230,7 +230,8 @@ private val IntPreferenceDefaults =
         WELCOME_DIALOG to 1,
         AUDIO_CONVERSION_FORMAT to NOT_SPECIFIED,
         VIDEO_QUALITY to NOT_SPECIFIED,
-        VIDEO_FORMAT to FORMAT_QUALITY,
+        // VidHarbor: H.264 + AAC MP4 by default, so videos can be shared in WeChat and play everywhere
+        VIDEO_FORMAT to FORMAT_COMPATIBILITY,
         UPDATE_CHANNEL to STABLE,
         SHOW_SPONSOR_MSG to 0,
         CONVERT_SUBTITLE to NOT_SPECIFIED,

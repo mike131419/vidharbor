@@ -477,6 +477,10 @@ object DownloadUtil {
                 if (mergeToMkv) {
                     addOption("--remux-video", "mkv")
                     addOption("--merge-output-format", "mkv")
+                } else if (videoFormat == FORMAT_COMPATIBILITY) {
+                    // VidHarbor: keep the WeChat-friendly MP4 container
+                    addOption("--merge-output-format", "mp4")
+                    addOption("--remux-video", "webm>mp4/mkv>mp4/mov>mp4")
                 }
                 if (embedThumbnail) {
                     addOption("--embed-thumbnail")
@@ -510,7 +514,8 @@ object DownloadUtil {
         this.run {
             val format =
                 when (videoFormat) {
-                    FORMAT_COMPATIBILITY -> "proto,vcodec:h264,ext"
+                    // VidHarbor: codec before protocol, so an H.264 + AAC MP4 wins (WeChat rejects VP9/AV1/HEVC, WebM, MKV)
+                    FORMAT_COMPATIBILITY -> "vcodec:h264,acodec:aac,ext:mp4:m4a,proto"
                     FORMAT_QUALITY ->
                         if (supportAv1HardwareDecoding) {
                             "vcodec:av01"
